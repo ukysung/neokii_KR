@@ -438,6 +438,12 @@ QWidget * community_panel() {
                                             ));
 
   toggles_list->addWidget(horizontal_line());
+  toggles_list->addWidget(new ParamControl("EmptyScreen",
+                                            "Show ui",
+                                            "Show side ui",
+                                            "../assets/offroad/icon_shell.png"
+                                            ));
+  toggles_list->addWidget(horizontal_line());
   toggles_list->addWidget(new ParamControl("CustomLeadMark",
                                             "Use custom lead mark",
                                             "",

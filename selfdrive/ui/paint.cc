@@ -765,13 +765,15 @@ static void bb_ui_draw_UI(UIState *s)
   const int bb_dmr_w = 180;
   const int bb_dmr_x = s->fb_w - bb_dmr_w - (bdr_is * 2);
   const int bb_dmr_y = (box_y + (bdr_is * 1.5)) + UI_FEATURE_RIGHT_Y;
-
+// 스위치 화면 비우기 시작
 #if UI_FEATURE_LEFT
-  bb_ui_draw_measures_left(s, bb_dml_x, bb_dml_y, bb_dml_w);
+  if(s->empty_screen)
+    bb_ui_draw_measures_left(s, bb_dml_x, bb_dml_y, bb_dml_w);
 #endif
 
 #if UI_FEATURE_RIGHT
-  bb_ui_draw_measures_right(s, bb_dmr_x, bb_dmr_y, bb_dmr_w);
+  if(s->empty_screen)
+    bb_ui_draw_measures_right(s, bb_dmr_x, bb_dmr_y, bb_dmr_w);
 #endif
 
   bb_ui_draw_basic_info(s);
@@ -847,7 +849,7 @@ static void ui_draw_vision_autohold(UIState *s) {
     return;
 
   const int radius = 96;
-  const int center_x = radius + (bdr_s * 2) + (radius*2 + 60) * 2;
+  const int center_x = radius + (bdr_s * 2) + radius*2 + 60;
   const int center_y = s->fb_h - footer_h / 2;
 
   float brake_img_alpha = autohold > 0 ? 1.0f : 0.15f;
@@ -908,11 +910,60 @@ static void ui_draw_vision_maxspeed(UIState *s) {
 }
 
 static void ui_draw_vision_speed(UIState *s) {
+  //const Rect &viz_rect = s->viz_rect;
+  const UIScene *scene = &s->scene;
+  const int viz_speed_w = 280;
+  const int viz_speed_x = s->fb_w/2 - viz_speed_w/2;
+  const int y = -30;
   const float speed = std::max(0.0, (*s->sm)["controlsState"].getControlsState().getCluSpeedMs() * (s->scene.is_metric ? 3.6 : 2.2369363));
   const std::string speed_str = std::to_string((int)std::nearbyint(speed));
+
+  NVGcolor val_color = COLOR_WHITE;
+
+  if( s->scene.brakePress ) val_color = COLOR_RED;
+  else if( s->scene.brakeLights ) val_color = nvgRGBA(201, 34, 49, 100);
   nvgTextAlign(s->vg, NVG_ALIGN_CENTER | NVG_ALIGN_BASELINE);
-  ui_draw_text(s, s->fb_w/2, 210, speed_str.c_str(), 96 * 2.5, COLOR_WHITE, "sans-bold");
-  ui_draw_text(s, s->fb_w/2, 290, s->scene.is_metric ? "km/h" : "mph", 36 * 2.5, COLOR_WHITE_ALPHA(200), "sans-regular");
+
+  ui_draw_text(s, s->fb_w/2, 220, speed_str.c_str(), 100*2.5, val_color, "sans-bold");
+  ui_draw_text(s, s->fb_w/2, 300, s->scene.is_metric ? "km/h" : "mph", 38*2.5, COLOR_WHITE_ALPHA(200), "sans-semibold");
+ 
+  // turning blinker sequential @crwusiz / mod by @Togo
+  const int viz_blinker_w = 280;
+  const int viz_blinker_x = s->fb_w/2 - 140;
+  const int viz_add = 50;
+
+  if(s->scene.leftBlinker || s->scene.rightBlinker) {
+    s->scene.blinker_blinkingrate -= 5;
+    if(s->scene.blinker_blinkingrate < 0) s->scene.blinker_blinkingrate = 120;
+
+    float progress = (120 - s->scene.blinker_blinkingrate) / 120.0;
+    float offset = progress * (6.4 - 1.0) + 1.0;
+    if (offset < 1.0) offset = 1.0;
+    if (offset > 6.4) offset = 6.4;
+
+    float alpha = 1.0;
+    if (progress < 0.25) alpha = progress / 0.25;
+    if (progress > 0.75) alpha = 1.0 - ((progress - 0.75) / 0.25);
+
+    if(s->scene.leftBlinker) {      
+      nvgBeginPath(s->vg);
+      nvgMoveTo(s->vg, viz_blinker_x - (viz_add*offset)                    , (header_h/4.2));
+      nvgLineTo(s->vg, viz_blinker_x - (viz_add*offset) - (viz_blinker_w/2), (header_h/2.1));
+      nvgLineTo(s->vg, viz_blinker_x - (viz_add*offset)                    , (header_h/1.4));
+      nvgClosePath(s->vg);
+      nvgFillColor(s->vg, COLOR_LIME_ALPHA(180 * alpha));
+      nvgFill(s->vg);
+    }
+    if(s->scene.rightBlinker) {
+      nvgBeginPath(s->vg);
+      nvgMoveTo(s->vg, viz_blinker_x + (viz_add*offset) + viz_blinker_w      , (header_h/4));
+      nvgLineTo(s->vg, viz_blinker_x + (viz_add*offset) + (viz_blinker_w*1.5), (header_h/2.1));
+      nvgLineTo(s->vg, viz_blinker_x + (viz_add*offset) + viz_blinker_w      , (header_h/1.4));
+      nvgClosePath(s->vg);
+      nvgFillColor(s->vg, COLOR_LIME_ALPHA(180 * alpha));
+      nvgFill(s->vg);
+    }
+  }
 }
 
 static void ui_draw_vision_event(UIState *s) {
@@ -934,6 +985,55 @@ static void ui_draw_vision_face(UIState *s) {
   ui_draw_circle_image(s, center_x, center_y, radius, "driver_face", s->scene.dm_active);
 }
 
+static void ui_draw_vision_car(UIState *s) {
+  const UIScene *scene = &s->scene;
+  const int car_size = 230;
+  const int car_x_left = (s->fb_w/2 - 400);
+  const int car_x_right = (s->fb_w/2 + 400);
+  const int car_y = 500;
+  const int car_img_size_w = (car_size * 1);
+  const int car_img_size_h = (car_size * 1);
+  const int car_img_x_left = (car_x_left - (car_img_size_w / 2));
+  const int car_img_x_right = (car_x_right - (car_img_size_w / 2));
+  const int car_img_y = (car_y - (car_size / 4));
+
+  int car_valid_status = 0;
+  bool car_valid_left = scene->leftblindspot;
+  bool car_valid_right = scene->rightblindspot;
+  float car_img_alpha;
+    if (s->scene.car_valid_status_changed != car_valid_status) {
+      s->scene.blindspot_blinkingrate = 114;
+      s->scene.car_valid_status_changed = car_valid_status;
+    }
+    if (car_valid_left || car_valid_right) {
+      if (!car_valid_left && car_valid_right) {
+        car_valid_status = 1;
+      } else if (car_valid_left && !car_valid_right) {
+        car_valid_status = 2;
+      } else if (car_valid_left && car_valid_right) {
+        car_valid_status = 3;
+      } else {
+        car_valid_status = 0;
+      }
+      s->scene.blindspot_blinkingrate -= 6;
+      if(scene->blindspot_blinkingrate<0) s->scene.blindspot_blinkingrate = 120;
+      if (scene->blindspot_blinkingrate>=60) {
+        car_img_alpha = 1.0f;
+      } else {
+        car_img_alpha = 0.0f;
+      }
+    } else {
+      s->scene.blindspot_blinkingrate = 120;
+    }
+
+    if(car_valid_left) {
+      ui_draw_image(s, {car_img_x_left, car_img_y, car_img_size_w, car_img_size_h}, "car_left", car_img_alpha);
+    }
+    if(car_valid_right) {
+      ui_draw_image(s, {car_img_x_right, car_img_y, car_img_size_w, car_img_size_h}, "car_right", car_img_alpha);
+    }
+}
+
 static void ui_draw_vision_header(UIState *s) {
   NVGpaint gradient = nvgLinearGradient(s->vg, 0, header_h - (header_h / 2.5), 0, header_h,
                                         nvgRGBAf(0, 0, 0, 0.45), nvgRGBAf(0, 0, 0, 0));
@@ -953,8 +1053,10 @@ static void ui_draw_vision(UIState *s) {
   }
   // Set Speed, Current Speed, Status/Events
   ui_draw_vision_header(s);
+//bsd
+  ui_draw_vision_car(s);
   ui_draw_vision_scc_gap(s);
-  ui_draw_vision_brake(s);
+//  ui_draw_vision_brake(s);
   ui_draw_vision_autohold(s);
 }
 
@@ -1068,7 +1170,10 @@ void ui_nvg_init(UIState *s) {
   std::vector<std::pair<const char *, const char *>> images = {
     {"wheel", "../assets/img_chffr_wheel.png"},
     {"driver_face", "../assets/img_driver_face.png"},
-
+	//bsd
+    {"car_left", "../assets/img_car_left.png"},
+    {"car_right", "../assets/img_car_right.png"},
+	//bsd
 	{"brake", "../assets/img_brake_disc.png"},
 	{"autohold_warning", "../assets/img_autohold_warning.png"},
 	{"autohold_active", "../assets/img_autohold_active.png"},
