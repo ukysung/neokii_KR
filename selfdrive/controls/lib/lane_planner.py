@@ -121,7 +121,7 @@ class LanePlanner:
     self.d_prob = l_prob + r_prob - l_prob * r_prob
 
     # neokii/stonerains
-    if ENABLE_INC_LANE_PROB and self.d_prob > 0.65:
+    if ENABLE_INC_LANE_PROB and self.d_prob > 0.7:
       self.d_prob = min(self.d_prob * 1.35, 1.0)
     elif self.d_prob > 0.30:
       self.d_prob = min(self.d_prob * 1.6255, 0.93)
