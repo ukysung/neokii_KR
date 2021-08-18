@@ -307,7 +307,7 @@ class RoadSpeedLimiter:
           else:
             first_started = False
 
-          return section_limit_speed, section_limit_speed, section_left_dist, first_started, log
+          return section_limit_speed * CAMERA_SPEED_FACTOR, section_limit_speed, section_left_dist, first_started, log
 
         self.slowing_down = False
         return 0, section_limit_speed, section_left_dist, False, log
