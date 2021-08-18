@@ -235,6 +235,7 @@ std::unordered_map<std::string, uint32_t> keys = {
     {"SccSmootherState", PERSISTENT},
     {"SccSmootherSlowOnCurves", PERSISTENT},
     {"SccSmootherSyncGasPressed", PERSISTENT},
+    {"StockNaviDecelEnabled", PERSISTENT},
     {"ShowDebugUI", PERSISTENT},
     {"EmptyScreen", PERSISTENT}, // 스크린 비우기
     {"CustomLeadMark", PERSISTENT},
