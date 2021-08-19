@@ -250,7 +250,7 @@ SoftwarePanel::SoftwarePanel(QWidget* parent) : QWidget(parent) {
     main_layout->addWidget(horizontal_line());
   }
 
-  auto uninstallBtn = new ButtonControl("언인스톨 " + getBrand(), "오픈파일럿");
+  auto uninstallBtn = new ButtonControl("언인스톨 " + getBrand(), "제거");
   connect(uninstallBtn, &ButtonControl::clicked, [=]() {
     if (ConfirmationDialog::confirm("오픈파일럿을 제거하시겠습니까?", this)) {
       Params().putBool("DoUninstall", true);
